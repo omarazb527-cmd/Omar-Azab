@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة السلامة والصحة المهنية والبيئة - مستشفى الناس</title>
+    <!-- Firebase Realtime Database SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --primary: #0f766e;
+            --primary-dark: #115e59;
+            --accent: #0284c7;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --danger: #dc2626;
+            --success: #16a34a;
+            --warning: #d97706;
+        }
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+        body { background: var(--bg); color: var(--text); padding-bottom: 50px; }
+        header { background: linear-gradient(135deg, var(--primary-dark), var(--primary)); color: white; padding: 1.25rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); flex-wrap: wrap; gap: 15px; }
+        .header-title h1 { font-size: 1.4rem; font-weight: 700; }
+        .header-title p { font-size: 0.85rem; opacity: 0.9; margin-top: 3px; }
+        .header-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .sync-badge { background: rgba(255,255,255,0.15); padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; display: flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,0.25); }
+        .sync-dot { width: 10px; height: 10px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+        .container { max-width: 1300px; margin: 25px auto; padding: 0 15px; }
+        .tabs { display: flex; gap: 8px; border-bottom: 2px solid var(--border); margin-bottom: 20px; flex-wrap: wrap; }
+        .tab-btn { padding: 10px 18px; border: none; background: none; font-size: 0.95rem; font-weight: 600; color: var(--text-muted); cursor: pointer; border-radius: 8px 8px 0 0; transition: all 0.2s; }
+        .tab-btn.active { color: var(--primary); background: white; border-bottom: 3px solid var(--primary); }
+        .card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid var(--border); margin-bottom: 20px; }
+        .btn { padding: 8px 16px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; font-size: 0.88rem; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-outline { background: white; border: 1px solid var(--border); color: var(--text); }
+        .btn-outline-white { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; }
+        .btn-outline-white:hover { background: rgba(255,255,255,0.25); }
+        .table-responsive { overflow-x: auto; margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: right; }
+        th { background: #f1f5f9; padding: 12px; border: 1px solid var(--border); color: var(--text); font-weight: 600; }
+        td { padding: 10px 12px; border: 1px solid var(--border); color: var(--text); }
+        tr:nth-child(even) { background: #f8fafc; }
+        .badge { padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+        .badge-danger { background: #fee2e2; color: #991b1b; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-info { background: #e0f2fe; color: #0369a1; }
+        /* Modal */
+        .modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+        .modal { background: white; border-radius: 12px; max-width: 600px; width: 92%; max-height: 90vh; overflow-y: auto; padding: 25px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: var(--text); }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; }
+        /* Signatures Grid */
+        .signatures-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 40px; padding-top: 20px; border-top: 2px solid var(--border); text-align: center; }
+        .sig-box { border: 1px dashed var(--border); padding: 15px; border-radius: 8px; background: #fafafa; }
+        .sig-box h4 { font-size: 0.85rem; color: var(--text); margin-bottom: 4px; }
+        .sig-box p { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 25px; }
+        .sig-line { border-bottom: 1px solid #94a3b8; width: 80%; margin: 0 auto 6px; }
+        @media print {
+            header, .tabs, .no-print, .btn { display: none !important; }
+            body { background: white; padding: 0; }
+            .card { border: none; box-shadow: none; padding: 0; }
+            .signatures-grid { display: grid !important; page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-title">
+        <h1>مستشفى الناس - إدارة السلامة والصحة المهنية وحماية البيئة</h1>
+        <p>نظام التفتيش الميداني وسجل الحوادث والامتثال المركزي</p>
+    </div>
+    <div class="header-actions no-print">
+        <div class="sync-badge">
+            <span class="sync-dot" id="liveDot"></span>
+            <span id="liveStatusText">سحابة البيانات: متصل ولحظي (Live Firebase)</span>
+        </div>
+        <button class="btn btn-outline-white" onclick="exportBackupJSON()" title="تحميل نسخة احتياطية بصيغة JSON">💾 نسخة JSON</button>
+        <button class="btn btn-success" onclick="exportBackupExcelCSV()" title="تصدير وتحميل شيت Excel">📊 تصدير Excel</button>
+    </div>
+</header>
+
+<div class="container">
+    <div class="tabs no-print">
+        <button class="tab-btn active" onclick="switchTab('tab-inspections')">📋 خطة وجدول المرور</button>
+        <button class="tab-btn" onclick="switchTab('tab-incidents')">🩹 سجل الحوادث وإصابات العمل</button>
+        <button class="tab-btn" onclick="switchTab('tab-ncrs')">⚠️ تقارير عدم المطابقة (NCRs)</button>
+        <button class="tab-btn" onclick="switchTab('tab-kpis')">📊 تقييم أداء الفريق (KPIs)</button>
+        <button class="tab-btn" onclick="switchTab('tab-reports')">🖨️ طباعة التقارير والاعتمادات</button>
+    </div>
+
+    <!-- Tab 1: Inspections -->
+    <div id="tab-inspections" class="tab-content">
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <h3 style="font-size: 1.1rem; color: var(--primary);">جدول المرور الميداني الأسبوعي (شفتات 12 ساعة)</h3>
+                <div class="no-print" style="display: flex; gap: 8px;">
+                    <button class="btn btn-outline" onclick="triggerManualSync()">🔄 تحديث حي</button>
+                    <button class="btn btn-primary" onclick="openInspectionModal()">➕ إضافة جولة تفتيش</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>الوردية (الشفت)</th>
+                            <th>الموقع / القسم</th>
+                            <th>المفتش المسؤول</th>
+                            <th>نوع الجولة</th>
+                            <th>حالة المرور</th>
+                            <th>ملاحظات</th>
+                            <th class="no-print">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inspectionsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 2: Incidents -->
+    <div id="tab-incidents" class="tab-content" style="display:none;">
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <h3 style="font-size: 1.1rem; color: var(--danger);">سجل حوادث وإصابات العمل (Zero Accidents)</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 3px;">توثيق الحوادث المهنية بالورديات وتحديد أيام الغياب وإجراءات السلامة التصحيحية</p>
+                </div>
+                <button class="btn btn-danger no-print" onclick="openIncidentModal()">➕ تسجيل حادث / إصابة عمل</button>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>التاريخ والساعة</th>
+                            <th>الشفت</th>
+                            <th>اسم المصاب</th>
+                            <th>الإدارة / الوظيفة</th>
+                            <th>الموقع الدقيق</th>
+                            <th>نوع الإصابة</th>
+                            <th>أيام الغياب</th>
+                            <th>ملابسات الحادث والإجراء التصحيحي</th>
+                            <th class="no-print">إجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody id="incidentsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 3: NCRs -->
+    <div id="tab-ncrs" class="tab-content" style="display:none;">
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <h3 style="font-size: 1.1rem; color: var(--warning);">سجل ملاحظات عدم المطابقة (NCRs)</h3>
+                <button class="btn btn-primary no-print" onclick="openNcrModal()">➕ تسجيل تقرير عدم مطابقة</button>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>كود NCR</th>
+                            <th>الموقع / القسم</th>
+                            <th>وصف عدم المطابقة</th>
+                            <th>مستوى الخطورة</th>
+                            <th>المهلة المحددة</th>
+                            <th>الحالة</th>
+                            <th class="no-print">إجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ncrsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 4: KPIs -->
+    <div id="tab-kpis" class="tab-content" style="display:none;">
+        <div class="card">
+            <h3 style="font-size: 1.1rem; color: var(--primary); margin-bottom: 15px;">مصفوفة تقييم أداء مفتشي السلامة والصحة المهنية (KPIs)</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>اسم المفتش</th>
+                            <th>عدد الجولات المنجزة</th>
+                            <th>تقارير الـ NCR المرفوعة</th>
+                            <th>زمن الاستجابة والمتابعة</th>
+                            <th>نسبة الامتثال الكلية</th>
+                            <th>التقييم التراكمي</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kpisTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 5: Official Master Printable Reports -->
+    <div id="tab-reports" class="tab-content" style="display:none;">
+        <div class="card">
+            <div class="no-print" style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <label style="font-weight: 600; font-size: 0.9rem;">نوع التقرير:</label>
+                <select id="reportTypeSelect" onchange="renderActiveReport()" style="padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border);">
+                    <option value="master">🏛️ التقرير الشامل العام (Executive Master Report)</option>
+                    <option value="incidents">🩹 تقرير حوادث وإصابات العمل الرسمية</option>
+                    <option value="ncrs">⚠️ تقرير حالات عدم المطابقة والإنذارات</option>
+                    <option value="inspections">📋 تقرير خطة وجدول المرور الميداني</option>
+                    <option value="kpis">📊 تقرير مؤشرات الأداء السنوية والتراكمية</option>
+                </select>
+                <button class="btn btn-primary" onclick="window.print()">🖨️ طباعة التقرير وتصدير PDF</button>
+            </div>
+
+            <!-- Printable Layout Area -->
+            <div id="printArea" style="padding: 10px;">
+                <div style="border-bottom: 2px solid var(--primary); padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h2 style="color: var(--primary-dark); font-size: 1.3rem;">مستشفى الناس - إدارة السلامة والصحة المهنية وحماية البيئة</h2>
+                        <h3 id="reportPrintTitle" style="font-size: 1.1rem; margin-top: 5px; color: var(--text);">التقرير التنفيذي الشامل للسلامة والبيئة</h3>
+                    </div>
+                    <div style="text-align: left; font-size: 0.85rem; color: var(--text-muted);">
+                        <p>تاريخ الاستخراج: <span id="reportPrintDate"></span></p>
+                        <p>المرجعية: معايير GAHAR 2025 / ISO 45001</p>
+                    </div>
+                </div>
+
+                <div id="reportDynamicContent"></div>
+
+                <!-- 4-Party Executive Signatures Grid -->
+                <div class="signatures-grid">
+                    <div class="sig-box">
+                        <h4>م/ أحمد نبيه</h4>
+                        <p>Team Leader السلامة الميدانية</p>
+                        <div class="sig-line"></div>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">التوقيع والاعتماد</span>
+                    </div>
+                    <div class="sig-box">
+                        <h4>م/ عمر فريد العزب</h4>
+                        <p>مدير إدارة السلامة والصحة المهنية</p>
+                        <div class="sig-line"></div>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">التوقيع والاعتماد</span>
+                    </div>
+                    <div class="sig-box">
+                        <h4>مدير التشغيل</h4>
+                        <p>Operations Director</p>
+                        <div class="sig-line"></div>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">التوقيع والاعتماد</span>
+                    </div>
+                    <div class="sig-box">
+                        <h4>مدير عام المستشفى</h4>
+                        <p>General Director / CEO</p>
+                        <div class="sig-line"></div>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">الاعتماد والختم الرسمي</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Incident Entry -->
+<div id="incidentModalBackdrop" class="modal-backdrop">
+    <div class="modal">
+        <h3 style="color: var(--danger); margin-bottom: 15px;">تسجيل حادث / إصابة عمل جديدة</h3>
+        <div class="form-group">
+            <label>الوردية (الشفت)</label>
+            <select id="incShift">
+                <option value="نهاري (08:00 AM - 08:00 PM)">نهاري (08:00 AM - 08:00 PM)</option>
+                <option value="ليلي (08:00 PM - 08:00 AM)">ليلي (08:00 PM - 08:00 AM)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>اسم المصاب</label>
+            <input type="text" id="incName" placeholder="الاسم ثلاثي">
+        </div>
+        <div class="form-group">
+            <label>الإدارة / الوظيفة</label>
+            <input type="text" id="incDept" placeholder="مثال: الخدمات المساندة / تمريض / صيانة">
+        </div>
+        <div class="form-group">
+            <label>الموقع الدقيق لوقوع الحادث</label>
+            <input type="text" id="incLocation" placeholder="مثال: المغسلة المركزية / قسم العمليات">
+        </div>
+        <div class="form-group">
+            <label>نوع الإصابة ومستوى خطورتها</label>
+            <select id="incType">
+                <option value="إسعافات أولية (First Aid)">إسعافات أولية (First Aid)</option>
+                <option value="حادث وشيك (Near Miss)">حادث وشيك (Near Miss)</option>
+                <option value="إصابة عمل مع هدر وقت (Lost Time Injury)">إصابة عمل مع هدر وقت (Lost Time Injury)</option>
+                <option value="وخز إبرة وأدوات حادة (Sharps Injury)">وخز إبرة وأدوات حادة (Sharps Injury)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>أيام الغياب المقدرة (إن وجدت)</label>
+            <input type="number" id="incLostDays" value="0" min="0">
+        </div>
+        <div class="form-group">
+            <label>ملابسات وتفاصيل الحادث والإجراء التصحيحي</label>
+            <textarea id="incDesc" rows="3" placeholder="شرح ما حدث بدقة والإجراء المتخذ فوراً لمنع التكرار"></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+            <button class="btn btn-outline" onclick="closeModal('incidentModalBackdrop')">إلغاء</button>
+            <button class="btn btn-danger" onclick="saveIncidentEntry()">💾 حفظ وإرسال للـ Data Center</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Inspection Entry -->
+<div id="inspectionModalBackdrop" class="modal-backdrop">
+    <div class="modal">
+        <h3 style="color: var(--primary); margin-bottom: 15px;">إضافة جولة تفتيش بيئة الرعاية</h3>
+        <div class="form-group">
+            <label>اليوم والتاريخ</label>
+            <input type="date" id="inspDate">
+        </div>
+        <div class="form-group">
+            <label>الوردية (الشفت المحدد 12 ساعة)</label>
+            <select id="inspShift">
+                <option value="نهاري (08:00 AM - 08:00 PM)">نهاري (08:00 AM - 08:00 PM)</option>
+                <option value="ليلي (08:00 PM - 08:00 AM)">ليلي (08:00 PM - 08:00 AM)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>الموقع / القسم المستهدف</label>
+            <input type="text" id="inspLocation" placeholder="مثال: العناية المركزة / بنك الدم / محطة الغازات">
+        </div>
+        <div class="form-group">
+            <label>المفتش المسؤول</label>
+            <input type="text" id="inspInspector" placeholder="اسم فني / مفتش السلامة">
+        </div>
+        <div class="form-group">
+            <label>نوع الجولة</label>
+            <select id="inspType">
+                <option value="مرور بيئة الرعاية (EOC)">مرور بيئة الرعاية (EOC)</option>
+                <option value="فحص السلامة من الحريق (Fire Safety)">فحص السلامة من الحريق (Fire Safety)</option>
+                <option value="إدارة المواد الخطرة والنفايات">إدارة المواد الخطرة والنفايات</option>
+                <option value="فحص السلامة الإنشائية ومواقع العمل">فحص السلامة الإنشائية ومواقع العمل</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>حالة المرور</label>
+            <select id="inspStatus">
+                <option value="مكتمل وممتثل">مكتمل وممتثل</option>
+                <option value="تم الرصد وتوجد ملاحظات">تم الرصد وتوجد ملاحظات</option>
+                <option value="قيد المتابعة والتنفيذ">قيد المتابعة والتنفيذ</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>ملاحظات إضافية</label>
+            <textarea id="inspNotes" rows="2"></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+            <button class="btn btn-outline" onclick="closeModal('inspectionModalBackdrop')">إلغاء</button>
+            <button class="btn btn-primary" onclick="saveInspectionEntry()">💾 حفظ وإرسال للـ Data Center</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: NCR Entry -->
+<div id="ncrModalBackdrop" class="modal-backdrop">
+    <div class="modal">
+        <h3 style="color: var(--warning); margin-bottom: 15px;">تسجيل تقرير عدم مطابقة (NCR)</h3>
+        <div class="form-group">
+            <label>كود التقرير (NCR Code)</label>
+            <input type="text" id="ncrCode" value="NCR-2026-">
+        </div>
+        <div class="form-group">
+            <label>الموقع / القسم المخالف</label>
+            <input type="text" id="ncrLocation">
+        </div>
+        <div class="form-group">
+            <label>وصف عدم المطابقة بدقة</label>
+            <textarea id="ncrDesc" rows="3"></textarea>
+        </div>
+        <div class="form-group">
+            <label>مستوى الخطورة</label>
+            <select id="ncrSeverity">
+                <option value="حرج (Critical)">حرج (Critical)</option>
+                <option value="متوسط (Major)">متوسط (Major)</option>
+                <option value="بسيط (Minor)">بسيط (Minor)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>المهلة المحددة للإغلاق (تاريخ)</label>
+            <input type="date" id="ncrDeadline">
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+            <button class="btn btn-outline" onclick="closeModal('ncrModalBackdrop')">إلغاء</button>
+            <button class="btn btn-primary" onclick="saveNcrEntry()">💾 حفظ وإرسال للـ Data Center</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Centralized Data Center Configuration ---
+    const FIREBASE_DB_URL = "https://safety-alnas-hospital-default-rtdb.firebaseio.com/";
+
+    // Determine current shift based on current time (8 AM - 8 PM = Day, 8 PM - 8 AM = Night)
+    function getCurrentShift() {
+        const hour = new Date().getHours();
+        return (hour >= 8 && hour < 20) ? "نهاري (08:00 AM - 08:00 PM)" : "ليلي (08:00 PM - 08:00 AM)";
+    }
+
+    // Initialize Firebase
+    let dbRef = null;
+    try {
+        const app = firebase.initializeApp({ databaseURL: FIREBASE_DB_URL });
+        const db = firebase.database();
+        dbRef = db.ref("alnas_safety_master_data");
+        
+        // Listen to live connection state
+        db.ref(".info/connected").on("value", function(snap) {
+            const dot = document.getElementById("liveDot");
+            const txt = document.getElementById("liveStatusText");
+            if (snap.val() === true) {
+                dot.style.background = "#22c55e";
+                dot.style.boxShadow = "0 0 8px #22c55e";
+                txt.innerText = "سحابة البيانات: متصل ولحظي (Live Firebase)";
+            } else {
+                dot.style.background = "#eab308";
+                dot.style.boxShadow = "0 0 8px #eab308";
+                txt.innerText = "سحابة البيانات: جاري إعادة الاتصال...";
+            }
+        });
+    } catch (err) {
+        console.error("Firebase init error:", err);
+    }
+
+    // Default Master State
+    let appState = {
+        inspections: [
+            { id: 1, date: "2026-11-04", shift: "نهاري (08:00 AM - 08:00 PM)", location: "العناية المركزة (ICU)", inspector: "فني السلامة الميداني", type: "مرور بيئة الرعاية (EOC)", status: "مكتمل وممتثل", notes: "مخارج الطوارئ ومسارات الهروب خالية تماماً" },
+            { id: 2, date: "2026-11-04", shift: "ليلي (08:00 PM - 08:00 AM)", location: "المغسلة المركزية", inspector: "فني السلامة الميداني", type: "إدارة المواد الخطرة والنفايات", status: "تم الرصد وتوجد ملاحظات", notes: "تم التوجيه باستبدال ملصق MSDS لأحد براميل المطهرات" }
+        ],
+        incidents: [
+            { id: 1, datetime: "2026-11-02 11:30", shift: "نهاري (08:00 AM - 08:00 PM)", name: "محمد علي عبد الرحمن", dept: "الخدمات المعاونة", location: "محطة النفايات المركزية", type: "إسعافات أولية (First Aid)", lostDays: 0, desc: "خدش سطحي أثناء نقل حاوية نفايات، تم تطهير الجرح وتقديم الإسعاف الأولي فوراً والعودة للعمل" }
+        ],
+        ncrs: [
+            { id: 1, code: "NCR-2026-081", location: "المطبخ المركزي", desc: "تخزين مواد كرتونية على ارتفاع يتجاوز المسافة المسموحة تحت رشاشات الحريق", severity: "متوسط (Major)", deadline: "2026-11-06", status: "مفتوح" }
+        ],
+        kpis: [
+            { inspector: "أحمد حسن (فني سلامة)", inspectionsDone: 24, ncrsRaised: 6, responseTime: "1.2 يوم", compliance: "98%", score: "ممتاز" },
+            { inspector: "محمود إبراهيم (فني سلامة)", inspectionsDone: 22, ncrsRaised: 4, responseTime: "1.5 يوم", compliance: "96%", score: "ممتاز" },
+            { inspector: "كريم مصطفى (فني سلامة)", inspectionsDone: 20, ncrsRaised: 5, responseTime: "1.8 يوم", compliance: "94%", score: "جيد جداً" }
+        ]
+    };
+
+    // Live Synchronizer: Listen to all changes from any device
+    if (dbRef) {
+        dbRef.on("value", (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                appState = data;
+                renderAllTables();
+            } else {
+                pushStateToFirebase();
+            }
+        });
+    }
+
+    function pushStateToFirebase() {
+        if (dbRef) {
+            dbRef.set(appState).catch(err => console.error("Sync push error:", err));
+        }
+    }
+
+    function triggerManualSync() {
+        if (dbRef) {
+            dbRef.once("value").then(snap => {
+                if (snap.exists()) {
+                    appState = snap.val();
+                    renderAllTables();
+                    alert("✅ تم استرجاع ومزامنة أحدث البيانات من سحابة المستشفى المركزية!");
+                }
+            });
+        }
+    }
+
+    // --- Backup & Export Functions ---
+    // 1. Export JSON Full Backup
+    function exportBackupJSON() {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
+        const downloadAnchor = document.createElement('a');
+        const now = new Date().toISOString().split('T')[0];
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", `Alnas_Safety_Backup_${now}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+    }
+
+    // 2. Export Excel / CSV Compatible with Arabic UTF-8 BOM
+    function exportBackupExcelCSV() {
+        let csvContent = "﻿"; // UTF-8 BOM for Excel Arabic support
+        const now = new Date().toISOString().split('T')[0];
+
+        // Section 1: Inspections
+        csvContent += "=== جدول جولات المرور والتفتيش الميداني ===
+";
+        csvContent += "التاريخ,الشفت,الموقع / القسم,المفتش المسؤول,نوع الجولة,حالة المرور,ملاحظات
+";
+        (appState.inspections || []).forEach(i => {
+            csvContent += `"${i.date}","${i.shift || '-'}","${i.location}","${i.inspector}","${i.type}","${i.status}","${(i.notes || '').replace(/"/g, '""')}"
+`;
+        });
+        csvContent += "
+";
+
+        // Section 2: Incidents
+        csvContent += "=== سجل حوادث وإصابات العمل ===
+";
+        csvContent += "التاريخ والوقت,الشفت,اسم المصاب,الإدارة / الوظيفة,الموقع,نوع الإصابة,أيام الغياب,التفاصيل والإجراء التصحيحي
+";
+        (appState.incidents || []).forEach(inc => {
+            csvContent += `"${inc.datetime}","${inc.shift || '-'}","${inc.name}","${inc.dept || '-'}","${inc.location}","${inc.type}","${inc.lostDays}","${(inc.desc || '').replace(/"/g, '""')}"
+`;
+        });
+        csvContent += "
+";
+
+        // Section 3: NCRs
+        csvContent += "=== تقارير عدم المطابقة (NCRs) ===
+";
+        csvContent += "كود التقرير,الموقع,وصف عدم المطابقة,مستوى الخطورة,المهلة,الحالة
+";
+        (appState.ncrs || []).forEach(n => {
+            csvContent += `"${n.code}","${n.location}","${(n.desc || '').replace(/"/g, '""')}","${n.severity}","${n.deadline}","${n.status}"
+`;
+        });
+        csvContent += "
+";
+
+        // Section 4: KPIs
+        csvContent += "=== مؤشرات أداء فريق السلامة (KPIs) ===
+";
+        csvContent += "اسم المفتش,الجولات المنجزة,تقارير NCR,زمن الاستجابة,نسبة الامتثال,التقييم
+";
+        (appState.kpis || []).forEach(k => {
+            csvContent += `"${k.inspector}","${k.inspectionsDone}","${k.ncrsRaised}","${k.responseTime}","${k.compliance}","${k.score}"
+`;
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Alnas_Safety_Excel_Report_${now}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // Tab Switching
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById(tabId).style.display = 'block';
+        event.target.classList.add('active');
+        if (tabId === 'tab-reports') renderActiveReport();
+    }
+
+    // Modal Control
+    function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    function openIncidentModal() { 
+        document.getElementById('incShift').value = getCurrentShift();
+        openModal('incidentModalBackdrop'); 
+    }
+    function openInspectionModal() { 
+        document.getElementById('inspDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('inspShift').value = getCurrentShift();
+        openModal('inspectionModalBackdrop'); 
+    }
+    function openNcrModal() { openModal('ncrModalBackdrop'); }
+
+    // Save Handlers
+    function saveIncidentEntry() {
+        const shift = document.getElementById('incShift').value;
+        const name = document.getElementById('incName').value.trim();
+        const dept = document.getElementById('incDept').value.trim();
+        const location = document.getElementById('incLocation').value.trim();
+        const type = document.getElementById('incType').value;
+        const lostDays = parseInt(document.getElementById('incLostDays').value) || 0;
+        const desc = document.getElementById('incDesc').value.trim();
+
+        if (!name || !location) { alert("يرجى ملء اسم المصاب والموقع!"); return; }
+
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0] + ' ' + now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+
+        if (!appState.incidents) appState.incidents = [];
+        appState.incidents.unshift({
+            id: Date.now(),
+            datetime: dateStr,
+            shift: shift,
+            name: name,
+            dept: dept,
+            location: location,
+            type: type,
+            lostDays: lostDays,
+            desc: desc
+        });
+
+        pushStateToFirebase();
+        closeModal('incidentModalBackdrop');
+        document.getElementById('incName').value = '';
+        document.getElementById('incDept').value = '';
+        document.getElementById('incLocation').value = '';
+        document.getElementById('incDesc').value = '';
+    }
+
+    function saveInspectionEntry() {
+        const date = document.getElementById('inspDate').value;
+        const shift = document.getElementById('inspShift').value;
+        const location = document.getElementById('inspLocation').value.trim();
+        const inspector = document.getElementById('inspInspector').value.trim();
+        const type = document.getElementById('inspType').value;
+        const status = document.getElementById('inspStatus').value;
+        const notes = document.getElementById('inspNotes').value.trim();
+
+        if (!location || !inspector) { alert("يرجى ملء الموقع واسم المفتش!"); return; }
+
+        if (!appState.inspections) appState.inspections = [];
+        appState.inspections.unshift({
+            id: Date.now(),
+            date: date,
+            shift: shift,
+            location: location,
+            inspector: inspector,
+            type: type,
+            status: status,
+            notes: notes
+        });
+
+        pushStateToFirebase();
+        closeModal('inspectionModalBackdrop');
+        document.getElementById('inspLocation').value = '';
+        document.getElementById('inspInspector').value = '';
+        document.getElementById('inspNotes').value = '';
+    }
+
+    function saveNcrEntry() {
+        const code = document.getElementById('ncrCode').value.trim();
+        const location = document.getElementById('ncrLocation').value.trim();
+        const desc = document.getElementById('ncrDesc').value.trim();
+        const severity = document.getElementById('ncrSeverity').value;
+        const deadline = document.getElementById('ncrDeadline').value;
+
+        if (!code || !location || !desc) { alert("يرجى استكمال بيانات تقرير عدم المطابقة!"); return; }
+
+        if (!appState.ncrs) appState.ncrs = [];
+        appState.ncrs.unshift({
+            id: Date.now(),
+            code: code,
+            location: location,
+            desc: desc,
+            severity: severity,
+            deadline: deadline,
+            status: "مفتوح"
+        });
+
+        pushStateToFirebase();
+        closeModal('ncrModalBackdrop');
+        document.getElementById('ncrDesc').value = '';
+        document.getElementById('ncrLocation').value = '';
+    }
+
+    // Render Tables
+    function renderAllTables() {
+        renderInspectionsTable();
+        renderIncidentsTable();
+        renderNcrsTable();
+        renderKpisTable();
+    }
+
+    function renderInspectionsTable() {
+        const tbody = document.getElementById('inspectionsTableBody');
+        tbody.innerHTML = '';
+        (appState.inspections || []).forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${item.date}</strong></td>
+                <td><span class="badge ${item.shift && item.shift.includes('نهاري') ? 'badge-info' : 'badge-warning'}">${item.shift || 'نهاري'}</span></td>
+                <td>${item.location}</td>
+                <td>${item.inspector}</td>
+                <td>${item.type}</td>
+                <td><span class="badge ${item.status.includes('ممتثل') ? 'badge-success' : 'badge-warning'}">${item.status}</span></td>
+                <td>${item.notes || '-'}</td>
+                <td class="no-print"><button class="btn btn-danger" style="padding: 3px 8px; font-size: 0.75rem;" onclick="deleteInspection(${item.id})">حذف</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderIncidentsTable() {
+        const tbody = document.getElementById('incidentsTableBody');
+        tbody.innerHTML = '';
+        (appState.incidents || []).forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.datetime}</td>
+                <td><span class="badge ${item.shift && item.shift.includes('نهاري') ? 'badge-info' : 'badge-warning'}">${item.shift || '-'}</span></td>
+                <td><strong>${item.name}</strong></td>
+                <td>${item.dept || '-'}</td>
+                <td>${item.location}</td>
+                <td><span class="badge badge-danger">${item.type}</span></td>
+                <td><strong>${item.lostDays}</strong> يوم</td>
+                <td>${item.desc}</td>
+                <td class="no-print"><button class="btn btn-danger" style="padding: 3px 8px; font-size: 0.75rem;" onclick="deleteIncident(${item.id})">حذف</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderNcrsTable() {
+        const tbody = document.getElementById('ncrsTableBody');
+        tbody.innerHTML = '';
+        (appState.ncrs || []).forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${item.code}</strong></td>
+                <td>${item.location}</td>
+                <td>${item.desc}</td>
+                <td><span class="badge ${item.severity.includes('حرج') ? 'badge-danger' : 'badge-warning'}">${item.severity}</span></td>
+                <td>${item.deadline || '-'}</td>
+                <td><span class="badge ${item.status === 'مغلق' ? 'badge-success' : 'badge-danger'}">${item.status}</span></td>
+                <td class="no-print"><button class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem;" onclick="toggleNcrStatus(${item.id})">تغيير الحالة</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderKpisTable() {
+        const tbody = document.getElementById('kpisTableBody');
+        tbody.innerHTML = '';
+        (appState.kpis || []).forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${item.inspector}</strong></td>
+                <td>${item.inspectionsDone} جولة</td>
+                <td>${item.ncrsRaised} تقرير</td>
+                <td>${item.responseTime}</td>
+                <td><span class="badge badge-success">${item.compliance}</span></td>
+                <td><strong>${item.score}</strong></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function deleteInspection(id) {
+        if (!confirm("هل أنت متأكد من حذف هذا السجل؟")) return;
+        appState.inspections = appState.inspections.filter(x => x.id !== id);
+        pushStateToFirebase();
+    }
+
+    function deleteIncident(id) {
+        if (!confirm("هل أنت متأكد من حذف سجل الحادث؟")) return;
+        appState.incidents = appState.incidents.filter(x => x.id !== id);
+        pushStateToFirebase();
+    }
+
+    function toggleNcrStatus(id) {
+        const item = appState.ncrs.find(x => x.id === id);
+        if (item) {
+            item.status = item.status === 'مفتوح' ? 'مغلق' : 'مفتوح';
+            pushStateToFirebase();
+        }
+    }
+
+    // Reports Generation
+    function renderActiveReport() {
+        const type = document.getElementById('reportTypeSelect').value;
+        const container = document.getElementById('reportDynamicContent');
+        const titleEl = document.getElementById('reportPrintTitle');
+        document.getElementById('reportPrintDate').innerText = new Date().toLocaleDateString('ar-EG');
+
+        let html = '';
+        if (type === 'master') {
+            titleEl.innerText = "التقرير التنفيذي الشامل للسلامة والبيئة ومؤشرات الأداء";
+            html = `
+                <div style="margin-bottom: 25px;">
+                    <h4 style="color: var(--primary); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 5px;">1. ملخص جاهزية بيئة الرعاية وجولات المرور الميداني (ورديات 12 ساعة)</h4>
+                    <p style="font-size: 0.9rem; margin-bottom: 10px;">إجمالي الجولات المنفذة: <strong>${(appState.inspections || []).length}</strong> جولة تفتيشية عبر مختلف أقسام المستشفى.</p>
+                </div>
+                <div style="margin-bottom: 25px;">
+                    <h4 style="color: var(--danger); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 5px;">2. إحصائيات حوادث وإصابات العمل (Zero Accidents Log)</h4>
+                    <p style="font-size: 0.9rem;">إجمالي الإصابات المسجلة: <strong>${(appState.incidents || []).length}</strong> إصابة | إجمالي أيام الغياب المهدورة: <strong>${(appState.incidents || []).reduce((acc, curr) => acc + (curr.lostDays || 0), 0)}</strong> يوم عمل.</p>
+                </div>
+                <div style="margin-bottom: 25px;">
+                    <h4 style="color: var(--warning); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 5px;">3. حالات عدم المطابقة والإنذارات (NCRs Status)</h4>
+                    <p style="font-size: 0.9rem;">إجمالي الحالات المفتوحة: <strong>${(appState.ncrs || []).filter(x => x.status === 'مفتوح').length}</strong> حالة جاري متابعتها وتصحيحها وفق المعايير المعتمدة.</p>
+                </div>
+            `;
+        } else if (type === 'incidents') {
+            titleEl.innerText = "سجل وبيان إصابات وحوادث العمل المعتمد";
+            html = `
+                <table>
+                    <thead>
+                        <tr><th>التاريخ</th><th>الشفت</th><th>المصاب</th><th>الإدارة</th><th>الموقع</th><th>النوع</th><th>أيام الغياب</th><th>الإجراء المتخذ</th></tr>
+                    </thead>
+                    <tbody>
+                        ${(appState.incidents || []).map(i => `<tr><td>${i.datetime}</td><td>${i.shift || '-'}</td><td>${i.name}</td><td>${i.dept}</td><td>${i.location}</td><td>${i.type}</td><td>${i.lostDays}</td><td>${i.desc}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else if (type === 'ncrs') {
+            titleEl.innerText = "تقرير متابعة تقارير عدم المطابقة الميدانية (NCRs)";
+            html = `
+                <table>
+                    <thead>
+                        <tr><th>كود NCR</th><th>الموقع</th><th>الوصف</th><th>مستوى الخطورة</th><th>المهلة</th><th>الحالة</th></tr>
+                    </thead>
+                    <tbody>
+                        ${(appState.ncrs || []).map(n => `<tr><td>${n.code}</td><td>${n.location}</td><td>${n.desc}</td><td>${n.severity}</td><td>${n.deadline}</td><td>${n.status}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else if (type === 'kpis') {
+            titleEl.innerText = "تقرير تقييم الأداء التراكمي لفريق السلامة والصحة المهنية";
+            html = `
+                <table>
+                    <thead>
+                        <tr><th>اسم المفتش</th><th>الجولات</th><th>NCRs</th><th>زمن الاستجابة</th><th>نسبة الامتثال</th><th>التقييم</th></tr>
+                    </thead>
+                    <tbody>
+                        ${(appState.kpis || []).map(k => `<tr><td>${k.inspector}</td><td>${k.inspectionsDone}</td><td>${k.ncrsRaised}</td><td>${k.responseTime}</td><td>${k.compliance}</td><td>${k.score}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else {
+            titleEl.innerText = "تقرير خطة المرور الميداني الأسبوعي";
+            html = `
+                <table>
+                    <thead>
+                        <tr><th>التاريخ</th><th>الشفت</th><th>الموقع</th><th>المفتش</th><th>نوع الجولة</th><th>الحالة</th></tr>
+                    </thead>
+                    <tbody>
+                        ${(appState.inspections || []).map(ins => `<tr><td>${ins.date}</td><td>${ins.shift || '-'}</td><td>${ins.location}</td><td>${ins.inspector}</td><td>${ins.type}</td><td>${ins.status}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+        container.innerHTML = html;
+    }
+
+    // Initial render
+    renderAllTables();
+</script>
+
+</body>
+</html>
